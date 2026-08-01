@@ -1,0 +1,1 @@
+-keep class com.texter.app.data.db.entity.** { *; }

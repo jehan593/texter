@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Matches ShareFileRepository's shareDir (context.cacheDir/shared/) — nothing else under
+         cache or files is exposed. -->
+    <cache-path name="shared_documents" path="shared/" />
+</paths>
