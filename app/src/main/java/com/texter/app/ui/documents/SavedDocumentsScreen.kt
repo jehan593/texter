@@ -110,7 +110,8 @@ fun SavedDocumentsScreen(onNavigateToEditor: (EditorSource) -> Unit) {
     }
 
     val createDocumentLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument("text/plain")
+        // See EditorScreen's identical launcher for why octet-stream, not text/plain.
+        ActivityResultContracts.CreateDocument("application/octet-stream")
     ) { uri ->
         val document = pendingSaveLocalDocument
         if (uri != null && document != null) {

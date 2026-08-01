@@ -109,7 +109,11 @@ fun EditorScreen(source: EditorSource, navKey: String, onBack: () -> Unit) {
     }
 
     val createDocumentLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument("text/plain")
+        // "application/octet-stream" rather than "text/plain": the latter has ".txt" as its
+        // registered extension, and Android's SAF picker force-appends the registered extension
+        // for the launcher's MIME type onto whatever filename is passed in (so "test.py" would
+        // become "test.py.txt"). octet-stream has no such mapping, so the typed extension survives.
+        ActivityResultContracts.CreateDocument("application/octet-stream")
     ) { uri -> uri?.let(viewModel::saveToLocalStorage) }
 
     val documentInfo = viewModel.documentInfo
