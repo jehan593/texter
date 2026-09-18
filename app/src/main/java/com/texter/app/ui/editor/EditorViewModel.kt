@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
 
 /** [id] is null until this document has actually been written to the saved list via an explicit
  *  "Save in app" — everything else (opening, update-original, save-to-local-storage) leaves it
@@ -51,6 +52,13 @@ class EditorViewModel(
     // Null means "never saved in app yet" — always dirty until the first explicit save,
     // regardless of whether the freshly-opened/created content has been edited.
     private var lastSavedText: String? = null
+    private var lastKeptText by mutableStateOf("")
+
+    var isSaving by mutableStateOf(false)
+        private set
+
+    val hasUnsavedChanges: Boolean
+        get() = documentInfo != null && !isLoading && textFieldValue.text != lastKeptText
 
     var isLoading by mutableStateOf(true)
         private set
@@ -111,6 +119,7 @@ class EditorViewModel(
                     textFieldValue = TextFieldValue("")
                 }
             }
+            lastKeptText = textFieldValue.text
             isLoading = false
         }
     }
@@ -125,24 +134,37 @@ class EditorViewModel(
 
     /** The ONLY action that writes this document into the saved list — opening a file, updating
      *  the original, and saving to local storage all leave it untouched. */
-    fun save() {
+    fun save(onSaved: () -> Unit = {}) {
         val info = documentInfo ?: return
+        if (isSaving) return
+        val content = textFieldValue.text
+        isSaving = true
         viewModelScope.launch {
-            val entity = savedEntity
-            val updated = if (entity == null) {
-                savedDocumentsRepository.create(
-                    displayName = info.displayName,
-                    content = textFieldValue.text,
-                    sourceUri = info.sourceUri,
-                    sourceWritable = info.sourceWritable
-                )
-            } else {
-                savedDocumentsRepository.updateContent(entity, textFieldValue.text)
+            try {
+                val entity = savedEntity
+                val updated = if (entity == null) {
+                    savedDocumentsRepository.create(
+                        displayName = info.displayName,
+                        content = content,
+                        sourceUri = info.sourceUri,
+                        sourceWritable = info.sourceWritable
+                    )
+                } else {
+                    savedDocumentsRepository.updateContent(entity, content)
+                }
+                savedEntity = updated
+                documentInfo = info.copy(id = updated.id)
+                lastSavedText = content
+                lastKeptText = content
+                _messages.tryEmit("Saved in app")
+                onSaved()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _messages.tryEmit("Couldn't save the file")
+            } finally {
+                isSaving = false
             }
-            savedEntity = updated
-            documentInfo = info.copy(id = updated.id)
-            lastSavedText = textFieldValue.text
-            _messages.tryEmit("Saved in app")
         }
     }
 
@@ -163,23 +185,39 @@ class EditorViewModel(
         val info = documentInfo ?: return
         val sourceUri = info.sourceUri ?: return
         if (!info.sourceWritable) return
+        if (isSaving) return
+        val content = textFieldValue.text
+        isSaving = true
         viewModelScope.launch {
             try {
-                documentIoRepository.writeText(Uri.parse(sourceUri), textFieldValue.text)
+                documentIoRepository.writeText(Uri.parse(sourceUri), content)
+                lastKeptText = content
                 _messages.tryEmit("Original file updated")
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _messages.tryEmit("Couldn't update the original file")
+            } finally {
+                isSaving = false
             }
         }
     }
 
     fun saveToLocalStorage(targetUri: Uri) {
+        if (isSaving) return
+        val content = textFieldValue.text
+        isSaving = true
         viewModelScope.launch {
             try {
-                documentIoRepository.writeText(targetUri, textFieldValue.text)
+                documentIoRepository.writeText(targetUri, content)
+                lastKeptText = content
                 _messages.tryEmit("Saved")
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _messages.tryEmit("Couldn't save to that location")
+            } finally {
+                isSaving = false
             }
         }
     }

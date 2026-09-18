@@ -1,13 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- A monospaced "T" monogram, kept within the ~66dp adaptive-icon safe zone -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:scaleX="0.8"
+        android:scaleY="0.8">
     <path
-        android:fillColor="#88C0D0"
-        android:pathData="
-            M27,27 L81,27 L81,41 L27,41 Z
-            M46,41 L62,41 L62,81 L46,81 Z" />
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#81A1C1"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M62,29 H37 Q32,29 32,34 V74 Q32,79 37,79 H71 Q76,79 76,74 V43 Z M62,29 V43 H76 M43,44 H52 M43,54 H60 M43,64 H52 M62,60 V70 M59,60 H65 M59,70 H65" />
+    </group>
 </vector>

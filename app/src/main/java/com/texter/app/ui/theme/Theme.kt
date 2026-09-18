@@ -1,10 +1,13 @@
 package com.texter.app.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.unit.dp
 
 // Nord is fundamentally a dark, arctic-bluish palette; dynamic color is deliberately disabled so
 // the app keeps a fixed Nord identity regardless of the device wallpaper (matches linker/noter/ownscreen).
@@ -15,11 +18,11 @@ import androidx.compose.runtime.Composable
 // substitute Material's own baseline (purple-tinted) defaults for whichever ones aren't passed.
 
 private val NordDarkColorScheme = darkColorScheme(
-    primary = nord8,
+    primary = nord9,
     onPrimary = nord0,
     primaryContainer = nord10,
     onPrimaryContainer = nord6,
-    secondary = nord7,
+    secondary = nord9,
     onSecondary = nord0,
     secondaryContainer = nord2,
     onSecondaryContainer = nord6,
@@ -33,7 +36,7 @@ private val NordDarkColorScheme = darkColorScheme(
     onSurface = nord4,
     surfaceVariant = nord2,
     onSurfaceVariant = nord4,
-    surfaceTint = nord8,
+    surfaceTint = nord9,
     surfaceDim = nord0,
     surfaceBright = nord2,
     surfaceContainerLowest = nord0,
@@ -53,11 +56,11 @@ private val NordDarkColorScheme = darkColorScheme(
 )
 
 private val NordLightColorScheme = lightColorScheme(
-    primary = nord10,
-    onPrimary = nord6,
-    primaryContainer = nord8,
+    primary = nord9,
+    onPrimary = nord0,
+    primaryContainer = nord4,
     onPrimaryContainer = nord0,
-    secondary = nord7,
+    secondary = nord9,
     onSecondary = nord0,
     secondaryContainer = nord5,
     onSecondaryContainer = nord0,
@@ -71,7 +74,7 @@ private val NordLightColorScheme = lightColorScheme(
     onSurface = nord1,
     surfaceVariant = nord4,
     onSurfaceVariant = nord1,
-    surfaceTint = nord10,
+    surfaceTint = nord9,
     surfaceDim = nord4,
     surfaceBright = nord6,
     surfaceContainerLowest = nord6,
@@ -98,6 +101,13 @@ fun TexterTheme(
     MaterialTheme(
         colorScheme = if (darkTheme) NordDarkColorScheme else NordLightColorScheme,
         typography = TexterTypography,
+        shapes = Shapes(
+            extraSmall = RoundedCornerShape(8.dp),
+            small = RoundedCornerShape(12.dp),
+            medium = RoundedCornerShape(12.dp),
+            large = RoundedCornerShape(12.dp),
+            extraLarge = RoundedCornerShape(12.dp)
+        ),
         content = content
     )
 }
