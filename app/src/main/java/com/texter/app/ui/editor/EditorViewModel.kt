@@ -22,9 +22,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.CancellationException
 
-/** [id] is null until this document has actually been written to the saved list via an explicit
- *  "Save in app" — everything else (opening, update-original, save-to-local-storage) leaves it
- *  null forever if the user never taps that action. */
+/** [id] is null until the file is saved in the app. */
 data class EditorDocumentInfo(
     val id: Long?,
     val displayName: String,
@@ -39,8 +37,6 @@ class EditorViewModel(
     private val shareFileRepository: ShareFileRepository
 ) : ViewModel() {
 
-    // Non-null only once this document exists in the saved list, so `save()` knows whether to
-    // insert or update.
     private var savedEntity: SavedDocumentEntity? = null
 
     var documentInfo by mutableStateOf<EditorDocumentInfo?>(null)
@@ -49,8 +45,7 @@ class EditorViewModel(
     var textFieldValue by mutableStateOf(TextFieldValue(""))
         private set
 
-    // Null means "never saved in app yet" — always dirty until the first explicit save,
-    // regardless of whether the freshly-opened/created content has been edited.
+    // Files not yet saved in the app show the unsaved marker even before editing.
     private var lastSavedText: String? = null
     private var lastKeptText by mutableStateOf("")
 
@@ -81,9 +76,7 @@ class EditorViewModel(
     private val _messages = MutableSharedFlow<String>(extraBufferCapacity = 1)
     val messages: SharedFlow<String> = _messages.asSharedFlow()
 
-    /** Emits whenever the current match changes so the screen can scroll it into view — kept
-     *  separate from [textFieldValue]'s selection because scrolling needs the text layout, which
-     *  only the screen has access to. */
+    // The screen owns the text layout needed to scroll to a match.
     private val _scrollToMatchRequests = MutableSharedFlow<SearchMatch>(extraBufferCapacity = 1)
     val scrollToMatchRequests: SharedFlow<SearchMatch> = _scrollToMatchRequests.asSharedFlow()
 
@@ -132,8 +125,7 @@ class EditorViewModel(
         }
     }
 
-    /** The ONLY action that writes this document into the saved list — opening a file, updating
-     *  the original, and saving to local storage all leave it untouched. */
+    /** Only this action adds a file to the app's saved list. */
     fun save(onSaved: () -> Unit = {}) {
         val info = documentInfo ?: return
         if (isSaving) return
@@ -168,8 +160,6 @@ class EditorViewModel(
         }
     }
 
-    /** Renames the in-memory document immediately (so it takes effect even if this session never
-     *  ends up calling [save]); if it's already in the saved list, also renames the Room row. */
     fun rename(newDisplayName: String) {
         val info = documentInfo ?: return
         val trimmed = newDisplayName.trim()

@@ -171,10 +171,7 @@ fun EditorScreen(source: EditorSource, navKey: String, onBack: () -> Unit) {
     }
 
     val createDocumentLauncher = rememberLauncherForActivityResult(
-        // "application/octet-stream" rather than "text/plain": the latter has ".txt" as its
-        // registered extension, and Android's SAF picker force-appends the registered extension
-        // for the launcher's MIME type onto whatever filename is passed in (so "test.py" would
-        // become "test.py.txt"). octet-stream has no such mapping, so the typed extension survives.
+        // Prevent the file picker from appending .txt to other file extensions.
         ActivityResultContracts.CreateDocument("application/octet-stream")
     ) { uri -> uri?.let(viewModel::saveToLocalStorage) }
 
@@ -207,7 +204,7 @@ fun EditorScreen(source: EditorSource, navKey: String, onBack: () -> Unit) {
                             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                         )
                         IconButton(onClick = viewModel::toggleSearch) {
-                            Icon(Icons.Default.Search, contentDescription = "Search in document")
+                            Icon(Icons.Default.Search, contentDescription = "Find in file")
                         }
                         IconButton(onClick = { menuExpanded = true }) {
                             Icon(Icons.Default.MoreVert, contentDescription = "More options")
@@ -248,7 +245,7 @@ fun EditorScreen(source: EditorSource, navKey: String, onBack: () -> Unit) {
                                 )
                             }
                             DropdownMenuItem(
-                                text = { Text("Save to local storage") },
+                                text = { Text("Save a copy") },
                                 onClick = {
                                     menuExpanded = false
                                     createDocumentLauncher.launch(documentInfo?.displayName ?: "untitled.txt")
@@ -311,7 +308,7 @@ fun EditorScreen(source: EditorSource, navKey: String, onBack: () -> Unit) {
             }
             documentInfo == null -> {
                 Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                    Text("This document no longer exists")
+                    Text("File not found")
                 }
             }
             else -> {
@@ -363,8 +360,8 @@ fun EditorScreen(source: EditorSource, navKey: String, onBack: () -> Unit) {
             onDismissRequest = { if (!viewModel.isSaving) showLeaveDialog = false },
             containerColor = MaterialTheme.colorScheme.surface,
             tonalElevation = 0.dp,
-            title = { Text("Keep changes?", style = MaterialTheme.typography.titleMedium) },
-            text = { Text("Keep saves this file in the app. Discard loses unsaved changes.") },
+            title = { Text("Save changes?", style = MaterialTheme.typography.titleMedium) },
+            text = { Text("Save this file in the app before leaving?") },
             confirmButton = {
                 Button(
                     onClick = {
@@ -375,7 +372,7 @@ fun EditorScreen(source: EditorSource, navKey: String, onBack: () -> Unit) {
                     },
                     enabled = !viewModel.isSaving,
                     shape = CircleShape
-                ) { Text(if (viewModel.isSaving) "Saving…" else "Keep") }
+                ) { Text(if (viewModel.isSaving) "Saving…" else "Save in app") }
             },
             dismissButton = {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

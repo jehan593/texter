@@ -142,7 +142,7 @@ fun SavedDocumentsScreen(onNavigateToEditor: (EditorSource) -> Unit) {
                     contentColor = MaterialTheme.colorScheme.primary,
                     elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 0.dp)
                 ) {
-                    Icon(Icons.Default.Edit, contentDescription = "Create a new file")
+                    Icon(Icons.Default.Edit, contentDescription = "New file")
                 }
                 FloatingActionButton(
                     onClick = { openDocumentLauncher.launch(arrayOf("*/*")) },
@@ -150,7 +150,7 @@ fun SavedDocumentsScreen(onNavigateToEditor: (EditorSource) -> Unit) {
                     contentColor = MaterialTheme.colorScheme.onPrimary,
                     elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 0.dp)
                 ) {
-                    Icon(Icons.Default.Add, contentDescription = "Open a file")
+                    Icon(Icons.Default.Add, contentDescription = "Open file")
                 }
             }
         },
@@ -303,7 +303,7 @@ private fun DocumentRow(
                     }
                 )
                 DropdownMenuItem(
-                    text = { Text("Save to local storage") },
+                    text = { Text("Save a copy") },
                     onClick = {
                         menuExpanded = false
                         onSaveLocalStorage()

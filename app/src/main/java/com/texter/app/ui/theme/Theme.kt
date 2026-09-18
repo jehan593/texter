@@ -9,13 +9,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.dp
 
-// Nord is fundamentally a dark, arctic-bluish palette; dynamic color is deliberately disabled so
-// the app keeps a fixed Nord identity regardless of the device wallpaper (matches linker/noter/ownscreen).
-//
-// Every role below is filled in explicitly, including the newer M3 "surface container" tiers
-// (surfaceContainer*/surfaceDim/surfaceBright) and the *Container roles for secondary/tertiary/
-// error. Leaving any of those out doesn't leave a gap — darkColorScheme()/lightColorScheme() quietly
-// substitute Material's own baseline (purple-tinted) defaults for whichever ones aren't passed.
+// Set every color role to keep Material defaults from appearing in the Nord theme.
 
 private val NordDarkColorScheme = darkColorScheme(
     primary = nord9,

@@ -4,45 +4,43 @@
 [![Latest release](https://img.shields.io/github/v/release/jehan593/texter)](https://github.com/jehan593/texter/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-Texter is a simple Android text editor — open and edit any text-based file, with lightweight
-syntax highlighting and in-document search.
+Texter is an Android text editor with syntax highlighting, search, and a read-only Reader mode.
+
+> FYI: This project is fully vibe coded.
 
 ## Features
 
-- **Open anything** — pick a file via the built-in picker, or share/open one into Texter from any
-  other app (file managers, etc.), regardless of how that app tags the file's type.
-- **Saved documents** — opening a file copies it into an app-owned saved list rather than editing
-  the original in place, since many "Open with" grants from other apps are read-only or don't
-  survive past that one intent. From the saved list: reopen, edit, delete.
-- **Update original / save to local storage / share** — write changes straight back to the
-  original file when it was opened with write access, save a copy to any location on the device,
-  or share the text directly with another app.
-- **Search** — always case-insensitive, matches whole words or parts, with up/down navigation
-  between multiple results.
-- **Syntax highlighting** — lightweight, regex-based highlighting for common code/config files.
-- **Nord theme** — dark/light color schemes built on the [Nord](https://www.nordtheme.com/)
-  palette, with Martian Mono Nerd Font for the app's UI (the text you're editing uses the
-  system monospace font instead, for full Unicode coverage).
+- Open text files from the file picker or another app, or create a new file.
+- Choose **Save in app** to keep a file in Texter's saved list. Opening a file alone doesn't save it.
+- Choose **Update original** to write back to the original file when write access is available.
+- Choose **Save a copy** to save through the file picker, or **Share** to send a file to another app.
+- Find text without matching letter case, and jump between results.
+- Read and copy text without editing it using **Reader mode** in the three-dot menu.
+- Highlight syntax in common code and configuration files.
+- Use light and dark [Nord](https://www.nordtheme.com/) themes.
 
 ## Install
 
-Grab the latest APK from [Releases](https://github.com/jehan593/texter/releases/latest).
+Download the latest APK from [Releases](https://github.com/jehan593/texter/releases/latest).
+Requires Android 8.0 or newer.
 
-## Building from source
+## Build from source
+
+Install JDK 17 and Android SDK 35. Set `ANDROID_HOME` to your SDK folder, or set
+`sdk.dir` in `local.properties`.
 
 ```sh
-./gradlew assembleRelease   # app/build/outputs/apk/release/app-release.apk (minified, resource-shrunk)
-./gradlew assembleDebug     # app/build/outputs/apk/debug/app-debug.apk
+./gradlew assembleDebug
+./gradlew assembleRelease
 ```
 
-Requires an Android SDK referenced via `local.properties` (`sdk.dir=...`). `compileSdk` 35,
-`minSdk` 26.
+On Windows, use `.\gradlew.bat` instead of `./gradlew`.
+
+APKs are written to `app/build/outputs/apk/debug/` and `app/build/outputs/apk/release/`.
 
 ## Tech stack
 
-Kotlin, Jetpack Compose, Material 3, Room. Manual dependency injection (no DI framework) — same
-conventions as this repo's sibling apps ([linker](https://github.com/jehan593/linker),
-[noter](https://github.com/jehan593/noter)).
+Kotlin, Jetpack Compose, Material 3, and Room.
 
 ## License
 
