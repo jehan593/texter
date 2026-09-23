@@ -5,6 +5,16 @@ import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.Modifier
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -20,22 +30,32 @@ import com.texter.app.ui.editor.EditorScreen
 import com.texter.app.ui.editor.EditorSource
 import com.texter.app.ui.rememberAppContainer
 import com.texter.app.ui.theme.TexterTheme
+import com.texter.app.ui.settings.SettingsScreen
 import java.util.UUID
 
 private sealed interface Screen {
     data object Documents : Screen
-    data class Editor(val source: EditorSource, val navKey: String = UUID.randomUUID().toString()) : Screen
+    data object Settings : Screen
+    data class Editor(
+        val source: EditorSource,
+        val navKey: String = UUID.randomUUID().toString(),
+        val returnToCaller: Boolean = false
+    ) : Screen
 }
+
+private data class IncomingFile(val uri: Uri, val returnToCaller: Boolean)
+
+private const val NAV_TRANSITION_MILLIS = 300
 
 class MainActivity : ComponentActivity() {
 
     // A Compose State object (not `by remember`) so writes from onNewIntent — which runs outside
     // any composition — still trigger recomposition of whatever reads .value inside setContent.
-    private val pendingImportUri = mutableStateOf<Uri?>(null)
+    private val pendingImport = mutableStateOf<IncomingFile?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        pendingImportUri.value = extractOpenableUri(intent)
+        pendingImport.value = extractIncomingFile(intent)
 
         setContent {
             TexterTheme {
@@ -53,28 +73,52 @@ class MainActivity : ComponentActivity() {
                     }
                 )
 
-                val importUri = pendingImportUri.value
-                LaunchedEffect(importUri) {
-                    if (importUri != null) {
-                        // Not our own picker, so don't assume write access — prepareOpen only
-                        // marks the source writable if a persistable write grant actually
-                        // succeeds for this URI. Never touches the saved list either way.
-                        documentsViewModel.prepareOpen(importUri, requestWritePermission = false) { source ->
-                            screen = Screen.Editor(source)
+                val incomingFile = pendingImport.value
+                LaunchedEffect(incomingFile) {
+                    if (incomingFile != null) {
+                        // Inspect the URI grant, including temporary write access from the sender.
+                        documentsViewModel.prepareOpen(incomingFile.uri) { source ->
+                            screen = Screen.Editor(source, returnToCaller = incomingFile.returnToCaller)
                         }
-                        pendingImportUri.value = null
+                        pendingImport.value = null
                     }
                 }
 
-                when (val current = screen) {
-                    Screen.Documents -> SavedDocumentsScreen(
-                        onNavigateToEditor = { source -> screen = Screen.Editor(source) }
-                    )
-                    is Screen.Editor -> EditorScreen(
-                        source = current.source,
-                        navKey = current.navKey,
-                        onBack = { screen = Screen.Documents }
-                    )
+                AnimatedContent(
+                    targetState = screen,
+                    modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
+                    transitionSpec = {
+                        val direction = if (targetState == Screen.Documents) {
+                            AnimatedContentTransitionScope.SlideDirection.End
+                        } else {
+                            AnimatedContentTransitionScope.SlideDirection.Start
+                        }
+                        (slideIntoContainer(direction, tween(NAV_TRANSITION_MILLIS)) +
+                            fadeIn(tween(NAV_TRANSITION_MILLIS))) togetherWith
+                            (slideOutOfContainer(direction, tween(NAV_TRANSITION_MILLIS)) +
+                                fadeOut(tween(NAV_TRANSITION_MILLIS)))
+                    },
+                    label = "Screen transition"
+                ) { current ->
+                    when (current) {
+                        Screen.Documents -> SavedDocumentsScreen(
+                            onNavigateToEditor = { source -> screen = Screen.Editor(source) },
+                            onNavigateToSettings = { screen = Screen.Settings }
+                        )
+                        Screen.Settings -> SettingsScreen(
+                            onBack = { screen = Screen.Documents },
+                            isActive = screen == current
+                        )
+                        is Screen.Editor -> EditorScreen(
+                            source = current.source,
+                            navKey = current.navKey,
+                            onBack = {
+                                // EditorScreen resolves unsaved changes before invoking this.
+                                if (current.returnToCaller) finish() else screen = Screen.Documents
+                            },
+                            isActive = screen == current
+                        )
+                    }
                 }
             }
         }
@@ -83,15 +127,16 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        pendingImportUri.value = extractOpenableUri(intent)
+        pendingImport.value = extractIncomingFile(intent)
     }
 
-    private fun extractOpenableUri(intent: Intent?): Uri? {
+    private fun extractIncomingFile(intent: Intent?): IncomingFile? {
         intent ?: return null
-        return when (intent.action) {
+        val uri = when (intent.action) {
             Intent.ACTION_VIEW -> intent.data
             Intent.ACTION_SEND -> IntentCompat.getParcelableExtra(intent, Intent.EXTRA_STREAM, Uri::class.java)
             else -> null
-        }
+        } ?: return null
+        return IncomingFile(uri, returnToCaller = intent.action == Intent.ACTION_VIEW)
     }
 }

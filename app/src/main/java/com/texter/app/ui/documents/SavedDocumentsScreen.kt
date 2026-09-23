@@ -16,10 +16,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -50,7 +50,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -58,14 +61,18 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.texter.app.data.db.entity.SavedDocumentEntity
+import com.texter.app.R
 import com.texter.app.ui.components.RenameDialog
 import com.texter.app.ui.editor.EditorSource
 import com.texter.app.ui.rememberAppContainer
 import com.texter.app.util.formatLastEdited
+import com.texter.app.text.findMatches
+import com.texter.app.ui.theme.nord0
+import com.texter.app.ui.theme.nord13
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SavedDocumentsScreen(onNavigateToEditor: (EditorSource) -> Unit) {
+fun SavedDocumentsScreen(onNavigateToEditor: (EditorSource) -> Unit, onNavigateToSettings: () -> Unit) {
     val container = rememberAppContainer()
     val viewModel: SavedDocumentsViewModel = viewModel(
         factory = viewModelFactory {
@@ -110,7 +117,7 @@ fun SavedDocumentsScreen(onNavigateToEditor: (EditorSource) -> Unit) {
         ActivityResultContracts.OpenDocument()
     ) { uri ->
         if (uri != null) {
-            viewModel.prepareOpen(uri, requestWritePermission = true) { source ->
+            viewModel.prepareOpen(uri) { source ->
                 onNavigateToEditor(source)
             }
         }
@@ -131,6 +138,11 @@ fun SavedDocumentsScreen(onNavigateToEditor: (EditorSource) -> Unit) {
         topBar = {
             TopAppBar(
                 title = { Text("Texter", style = MaterialTheme.typography.titleMedium) },
+                actions = {
+                    IconButton(onClick = onNavigateToSettings) {
+                        Icon(Icons.Default.Settings, contentDescription = "Settings")
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
             )
         },
@@ -150,7 +162,7 @@ fun SavedDocumentsScreen(onNavigateToEditor: (EditorSource) -> Unit) {
                     contentColor = MaterialTheme.colorScheme.onPrimary,
                     elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 0.dp)
                 ) {
-                    Icon(Icons.Default.Add, contentDescription = "Open file")
+                    Icon(painterResource(R.drawable.ic_folder_open), contentDescription = "Open file")
                 }
             }
         },
@@ -187,6 +199,7 @@ fun SavedDocumentsScreen(onNavigateToEditor: (EditorSource) -> Unit) {
                     items(documents, key = { it.id }) { document ->
                         DocumentRow(
                             document = document,
+                            searchQuery = viewModel.searchText,
                             onClick = { onNavigateToEditor(EditorSource.Saved(document.id)) },
                             onRename = { renamingDocument = document },
                             onCopyContent = { viewModel.requestCopyContent(document) },
@@ -227,13 +240,16 @@ fun SavedDocumentsScreen(onNavigateToEditor: (EditorSource) -> Unit) {
 
 @Composable
 private fun EmptyState(hasSearch: Boolean) {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = if (hasSearch) Alignment.TopCenter else Alignment.Center
+    ) {
         Text(
             text = if (hasSearch) "No matching files" else "No saved files yet.\nOpen a file or create one.",
             style = MaterialTheme.typography.bodyMedium,
             textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 32.dp)
+            modifier = Modifier.padding(horizontal = 32.dp).padding(top = if (hasSearch) 24.dp else 0.dp)
         )
     }
 }
@@ -242,6 +258,7 @@ private fun EmptyState(hasSearch: Boolean) {
 @Composable
 private fun DocumentRow(
     document: SavedDocumentEntity,
+    searchQuery: String,
     onClick: () -> Unit,
     onRename: () -> Unit,
     onCopyContent: () -> Unit,
@@ -250,6 +267,16 @@ private fun DocumentRow(
     onDelete: () -> Unit
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
+    val highlightedName = remember(document.displayName, searchQuery) {
+        buildAnnotatedString {
+            append(document.displayName)
+            if (searchQuery.isNotBlank()) {
+                findMatches(document.displayName, searchQuery).forEach { match ->
+                    addStyle(SpanStyle(background = nord13, color = nord0), match.start, match.end)
+                }
+            }
+        }
+    }
 
     Row(
         modifier = Modifier
@@ -265,7 +292,7 @@ private fun DocumentRow(
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Text(
-                text = document.displayName,
+                text = highlightedName,
                 style = MaterialTheme.typography.titleSmall,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis

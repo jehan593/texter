@@ -13,9 +13,8 @@ data class SavedDocumentEntity(
     /** content:// URI this document was opened from, if any. Null for documents created fresh
      *  in-app (not applicable yet, but keeps the door open). */
     val sourceUri: String?,
-    /** Whether [sourceUri] was granted with a persistable write permission — gates whether
-     *  "update original" is offered. False for URIs handed over via another app's read-only
-     *  "Open with" intent. */
+    /** Write-access snapshot when saved. The editor rechecks the URI grant when reopening,
+     *  since temporary Open with grants can expire. */
     val sourceWritable: Boolean,
     val createdAtMillis: Long,
     val lastEditedAtMillis: Long

@@ -55,21 +55,16 @@ class SavedDocumentsViewModel(
         searchQuery.value = text
     }
 
-    /** Reads [uri] and hands back an [EditorSource.Opened] for the editor to load — deliberately
-     *  does NOT touch the saved list. Only an explicit "Save in app" from the editor does that.
-     *  [requestWritePermission] should be true when [uri] came from our own SAF picker (always
-     *  writable) and false for another app's "Open with" intent (often read-only) — either way
-     *  the resulting writability is whatever [DocumentIoRepository.tryPersistWritablePermission]
-     *  could really obtain, not just what was requested. */
+    /** Opening does not add a file to the saved list. Temporary write access is enough to edit
+     *  the original; keep that access for later when the provider allows it. */
     fun prepareOpen(
         uri: Uri,
-        requestWritePermission: Boolean,
         onReady: (EditorSource.Opened) -> Unit
     ) {
         viewModelScope.launch {
             try {
-                val sourceWritable = requestWritePermission &&
-                    documentIoRepository.tryPersistWritablePermission(uri)
+                documentIoRepository.tryPersistWritablePermission(uri)
+                val sourceWritable = documentIoRepository.hasWritePermission(uri)
                 val content = documentIoRepository.readText(uri)
                 val displayName = documentIoRepository.queryDisplayName(uri)
                 onReady(EditorSource.Opened(displayName, content, uri.toString(), sourceWritable))

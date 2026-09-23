@@ -1,6 +1,8 @@
 package com.texter.app.ui.editor
 
 import android.content.Intent
+import android.graphics.Paint
+import android.graphics.Typeface
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -9,6 +11,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.absolutePadding
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -41,6 +44,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -61,11 +65,16 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -85,7 +94,6 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.texter.app.text.fileExtensionOf
 import com.texter.app.text.highlightSearchMatches
 import com.texter.app.text.highlightSyntax
-import com.texter.app.ui.components.RenameDialog
 import com.texter.app.ui.rememberAppContainer
 import com.texter.app.ui.theme.EditorFontFamily
 import kotlinx.coroutines.launch
@@ -93,7 +101,7 @@ import kotlin.math.ceil
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EditorScreen(source: EditorSource, navKey: String, onBack: () -> Unit) {
+fun EditorScreen(source: EditorSource, navKey: String, onBack: () -> Unit, isActive: Boolean = true) {
     val container = rememberAppContainer()
     val viewModel: EditorViewModel = viewModel(
         key = navKey,
@@ -121,7 +129,6 @@ fun EditorScreen(source: EditorSource, navKey: String, onBack: () -> Unit) {
     var textLayoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
     var menuExpanded by remember { mutableStateOf(false) }
     var readerMode by rememberSaveable(navKey) { mutableStateOf(false) }
-    var showRenameDialog by remember { mutableStateOf(false) }
     var showLeaveDialog by remember { mutableStateOf(false) }
     val requestBack: () -> Unit = {
         if (!viewModel.isSaving) {
@@ -129,7 +136,7 @@ fun EditorScreen(source: EditorSource, navKey: String, onBack: () -> Unit) {
         }
     }
 
-    BackHandler(onBack = requestBack)
+    BackHandler(enabled = isActive, onBack = requestBack)
 
     LaunchedEffect(
         scrollState.viewportSize,
@@ -176,6 +183,20 @@ fun EditorScreen(source: EditorSource, navKey: String, onBack: () -> Unit) {
     ) { uri -> uri?.let(viewModel::saveToLocalStorage) }
 
     val documentInfo = viewModel.documentInfo
+    val settings = container.editorSettings
+    val fileKey = documentInfo?.id?.let { "saved:$it" }
+    val originalLineNumbersOverride = remember(fileKey) { fileKey?.let(settings::lineNumbersOverride) }
+    var pendingLineNumbersOverride by rememberSaveable(navKey) { mutableStateOf<Boolean?>(null) }
+    // Remember the choice only after the file is saved in the app.
+    LaunchedEffect(fileKey) {
+        val pending = pendingLineNumbersOverride
+        if (fileKey != null && pending != null) {
+            settings.setLineNumbersOverride(fileKey, pending)
+            pendingLineNumbersOverride = null
+        }
+    }
+    val lineNumbersOverride = fileKey?.let(settings::lineNumbersOverride) ?: pendingLineNumbersOverride
+    val showLineNumbers = lineNumbersOverride ?: settings.showLineNumbers
 
     Scaffold(
         modifier = Modifier.imePadding(),
@@ -222,17 +243,22 @@ fun EditorScreen(source: EditorSource, navKey: String, onBack: () -> Unit) {
                                 }
                             )
                             DropdownMenuItem(
+                                text = { Text("Show line numbers") },
+                                trailingIcon = { Switch(checked = showLineNumbers, onCheckedChange = null) },
+                                onClick = {
+                                    if (fileKey != null) {
+                                        settings.setLineNumbersOverride(fileKey, !showLineNumbers)
+                                    } else {
+                                        pendingLineNumbersOverride = !showLineNumbers
+                                    }
+                                }
+                            )
+                            HorizontalDivider()
+                            DropdownMenuItem(
                                 text = { Text("Save in app") },
                                 onClick = {
                                     menuExpanded = false
                                     viewModel.save()
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Rename") },
-                                onClick = {
-                                    menuExpanded = false
-                                    showRenameDialog = true
                                 }
                             )
                             if (documentInfo != null && documentInfo.sourceWritable && documentInfo.sourceUri != null) {
@@ -251,6 +277,7 @@ fun EditorScreen(source: EditorSource, navKey: String, onBack: () -> Unit) {
                                     createDocumentLauncher.launch(documentInfo?.displayName ?: "untitled.txt")
                                 }
                             )
+                            HorizontalDivider()
                             DropdownMenuItem(
                                 text = { Text("Share") },
                                 onClick = {
@@ -274,6 +301,7 @@ fun EditorScreen(source: EditorSource, navKey: String, onBack: () -> Unit) {
                                     coroutineScope.launch { snackbarHostState.showSnackbar("Copied") }
                                 }
                             )
+                            HorizontalDivider()
                             DropdownMenuItem(
                                 text = { Text("Clear text") },
                                 enabled = !readerMode && viewModel.textFieldValue.text.isNotEmpty(),
@@ -314,6 +342,28 @@ fun EditorScreen(source: EditorSource, navKey: String, onBack: () -> Unit) {
             else -> {
                 val fileExtension = remember(documentInfo.displayName) { fileExtensionOf(documentInfo.displayName) }
                 val text = viewModel.textFieldValue.text
+                // Wrapped continuations share the original line number.
+                val lineStarts = remember(text) {
+                    buildList {
+                        add(0)
+                        text.forEachIndexed { index, char -> if (char == '\n') add(index + 1) }
+                    }
+                }
+                val density = LocalDensity.current
+                val numberColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f)
+                val gutterColor = MaterialTheme.colorScheme.surfaceVariant
+                val gutterDividerColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
+                val numberPaint = remember(density, numberColor) {
+                    Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                        typeface = Typeface.MONOSPACE
+                        textSize = with(density) { 14.sp.toPx() }
+                        color = numberColor.toArgb()
+                        textAlign = Paint.Align.RIGHT
+                    }
+                }
+                val gutterWidth = with(density) {
+                    numberPaint.measureText("9".repeat(lineStarts.size.toString().length)).toDp() + 24.dp
+                }
                 val syntaxHighlighted = remember(text, fileExtension) { highlightSyntax(text, fileExtension) }
                 val displayedText = remember(syntaxHighlighted, viewModel.matches, viewModel.currentMatchIndex) {
                     highlightSearchMatches(syntaxHighlighted, viewModel.matches, viewModel.currentMatchIndex)
@@ -337,7 +387,40 @@ fun EditorScreen(source: EditorSource, navKey: String, onBack: () -> Unit) {
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .heightIn(min = viewportHeight)
-                                .padding(12.dp)
+                                .drawBehind {
+                                    if (!showLineNumbers) return@drawBehind
+                                    drawRect(gutterColor, size = Size(gutterWidth.toPx(), size.height))
+                                    drawLine(
+                                        gutterDividerColor,
+                                        Offset(gutterWidth.toPx(), 0f),
+                                        Offset(gutterWidth.toPx(), size.height),
+                                        strokeWidth = 1.dp.toPx()
+                                    )
+                                    val layout = textLayoutResult
+                                    // A text edit can precede its new layout by one frame.
+                                    if (layout != null && layout.layoutInput.text.text == text) {
+                                        val top = scrollState.value.toFloat() - editorPaddingPx
+                                        val first = layout.getLineForVerticalPosition(top.coerceAtLeast(0f))
+                                        val last = layout.getLineForVerticalPosition(
+                                            (top + scrollState.viewportSize).coerceAtLeast(0f)
+                                        )
+                                        for (visualLine in first..last) {
+                                            val logicalLine = lineStarts.binarySearch(layout.getLineStart(visualLine))
+                                            if (logicalLine >= 0) {
+                                                drawContext.canvas.nativeCanvas.drawText(
+                                                    (logicalLine + 1).toString(),
+                                                    gutterWidth.toPx() - editorPaddingPx,
+                                                    layout.getLineBaseline(visualLine) + editorPaddingPx,
+                                                    numberPaint
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                                .absolutePadding(
+                                    left = if (showLineNumbers) gutterWidth + 12.dp else 12.dp,
+                                    right = 12.dp, top = 12.dp, bottom = 12.dp
+                                )
                                 .onFocusChanged { editorFocused = it.isFocused },
                             textStyle = TextStyle(
                                 fontFamily = EditorFontFamily,
@@ -360,53 +443,33 @@ fun EditorScreen(source: EditorSource, navKey: String, onBack: () -> Unit) {
             onDismissRequest = { if (!viewModel.isSaving) showLeaveDialog = false },
             containerColor = MaterialTheme.colorScheme.surface,
             tonalElevation = 0.dp,
-            title = { Text("Save changes?", style = MaterialTheme.typography.titleMedium) },
-            text = { Text("Save this file in the app before leaving?") },
+            title = { Text("Discard changes?", style = MaterialTheme.typography.titleMedium) },
+            text = { Text("Discard unsaved changes and go back?") },
             confirmButton = {
                 Button(
                     onClick = {
-                        viewModel.save {
-                            showLeaveDialog = false
-                            if (!viewModel.hasUnsavedChanges) onBack()
-                        }
+                        fileKey?.let { settings.setLineNumbersOverride(it, originalLineNumbersOverride) }
+                        pendingLineNumbersOverride = null
+                        showLeaveDialog = false
+                        onBack()
                     },
                     enabled = !viewModel.isSaving,
-                    shape = CircleShape
-                ) { Text(if (viewModel.isSaving) "Saving…" else "Save in app") }
+                    shape = CircleShape,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
+                    )
+                ) { Text("Discard") }
             },
             dismissButton = {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TextButton(
-                        onClick = { showLeaveDialog = false },
-                        enabled = !viewModel.isSaving
-                    ) { Text("Cancel") }
-                    Button(
-                        onClick = {
-                            showLeaveDialog = false
-                            onBack()
-                        },
-                        enabled = !viewModel.isSaving,
-                        shape = CircleShape,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.error,
-                            contentColor = MaterialTheme.colorScheme.onError
-                        )
-                    ) { Text("Discard") }
-                }
+                TextButton(
+                    onClick = { showLeaveDialog = false },
+                    enabled = !viewModel.isSaving
+                ) { Text("Cancel") }
             }
         )
     }
 
-    if (showRenameDialog && documentInfo != null) {
-        RenameDialog(
-            currentName = documentInfo.displayName,
-            onDismiss = { showRenameDialog = false },
-            onRename = { newName ->
-                viewModel.rename(newName)
-                showRenameDialog = false
-            }
-        )
-    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

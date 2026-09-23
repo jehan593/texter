@@ -4,10 +4,12 @@ import android.content.Context
 import androidx.room.Room
 import com.texter.app.data.db.AppDatabase
 import com.texter.app.data.repository.SavedDocumentsRepository
+import com.texter.app.data.repository.EditorSettings
 import com.texter.app.data.saf.DocumentIoRepository
 import com.texter.app.data.share.ShareFileRepository
 
 interface AppContainer {
+    val editorSettings: EditorSettings
     val database: AppDatabase
     val documentIoRepository: DocumentIoRepository
     val savedDocumentsRepository: SavedDocumentsRepository
@@ -15,6 +17,7 @@ interface AppContainer {
 }
 
 class DefaultAppContainer(private val context: Context) : AppContainer {
+    override val editorSettings: EditorSettings by lazy { EditorSettings(context) }
 
     override val database: AppDatabase by lazy {
         Room.databaseBuilder(context, AppDatabase::class.java, AppDatabase.DATABASE_NAME)
@@ -23,7 +26,7 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
     }
 
     override val documentIoRepository: DocumentIoRepository by lazy {
-        DocumentIoRepository(context.contentResolver)
+        DocumentIoRepository(context)
     }
 
     override val savedDocumentsRepository: SavedDocumentsRepository by lazy {

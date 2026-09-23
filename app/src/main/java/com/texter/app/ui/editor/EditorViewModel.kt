@@ -88,7 +88,11 @@ class EditorViewModel(
                     if (doc != null) {
                         savedEntity = doc
                         val content = savedDocumentsRepository.readContent(doc)
-                        documentInfo = EditorDocumentInfo(doc.id, doc.displayName, doc.sourceUri, doc.sourceWritable)
+                        // Write access may have expired since the file was saved.
+                        val sourceWritable = doc.sourceUri?.let {
+                            documentIoRepository.hasWritePermission(Uri.parse(it))
+                        } ?: false
+                        documentInfo = EditorDocumentInfo(doc.id, doc.displayName, doc.sourceUri, sourceWritable)
                         textFieldValue = TextFieldValue(content)
                         lastSavedText = content
                     }
@@ -176,6 +180,11 @@ class EditorViewModel(
         val sourceUri = info.sourceUri ?: return
         if (!info.sourceWritable) return
         if (isSaving) return
+        if (!documentIoRepository.hasWritePermission(Uri.parse(sourceUri))) {
+            documentInfo = info.copy(sourceWritable = false)
+            _messages.tryEmit("Write access expired. Reopen the file to update it.")
+            return
+        }
         val content = textFieldValue.text
         isSaving = true
         viewModelScope.launch {

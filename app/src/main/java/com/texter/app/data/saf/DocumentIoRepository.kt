@@ -1,8 +1,11 @@
 package com.texter.app.data.saf
 
 import android.content.ContentResolver
+import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Process
 import android.provider.OpenableColumns
 import android.webkit.MimeTypeMap
 import kotlinx.coroutines.Dispatchers
@@ -16,7 +19,19 @@ import java.io.IOException
  *  manifest alone). */
 class BinaryContentException(message: String) : IOException(message)
 
-class DocumentIoRepository(private val contentResolver: ContentResolver) {
+class DocumentIoRepository(private val context: Context) {
+
+    private val contentResolver = context.contentResolver
+
+    /** Open with may grant temporary write access that cannot be kept after closing the app. */
+    fun hasWritePermission(uri: Uri): Boolean =
+        uri.scheme == ContentResolver.SCHEME_CONTENT &&
+            context.checkUriPermission(
+                uri,
+                Process.myPid(),
+                Process.myUid(),
+                Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+            ) == PackageManager.PERMISSION_GRANTED
 
     suspend fun readText(uri: Uri): String = withContext(Dispatchers.IO) {
         val bytes = contentResolver.openInputStream(uri)?.use { it.readBytes() }
@@ -59,10 +74,7 @@ class DocumentIoRepository(private val contentResolver: ContentResolver) {
         return "$name.$extension"
     }
 
-    /** Best-effort persistable read+write grant for [uri]. Returns false (rather than throwing)
-     *  when the grant doesn't support it — e.g. a URI handed over via another app's read-only
-     *  "Open with" intent — since that's an expected, common case, not an error: the caller just
-     *  won't offer "update original" for that document. */
+    /** Try to keep access for later. If this fails, [hasWritePermission] may still allow editing. */
     fun tryPersistWritablePermission(uri: Uri): Boolean = try {
         contentResolver.takePersistableUriPermission(
             uri,

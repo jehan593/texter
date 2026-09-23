@@ -11,9 +11,14 @@ Texter is an Android text editor with syntax highlighting, search, and a read-on
 ## Features
 
 - Open text files from the file picker or another app, or create a new file.
+- **Back** returns to the previous app for **Open with** files, or to Texter's saved list for files opened in the app. Unsaved edits prompt you to discard or cancel.
 - Choose **Save in app** to keep a file in Texter's saved list. Opening a file alone doesn't save it.
 - Choose **Update original** to write back to the original file when write access is available.
-- Choose **Save a copy** to save through the file picker, or **Share** to send a file to another app.
+- **Update original** also works for **Open with** files when the sending app allows changes.
+- Choose **Save a copy** to save through the file picker, or **Share** to send a file to another app. Save options are grouped in the editor menu.
+- Line numbers appear in a separate strip. Wrapped text keeps its original line number.
+- Set **Show line numbers** in **Settings**, or change it for the current file in the editor menu. Per-file choices are remembered only for files saved in the app.
+- Search saved-file names with matching text highlighted in yellow.
 - Find text without matching letter case, and jump between results.
 - Read and copy text without editing it using **Reader mode** in the three-dot menu.
 - Highlight syntax in common code and configuration files.
